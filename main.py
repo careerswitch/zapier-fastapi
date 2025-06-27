@@ -19,6 +19,7 @@ from typing import Any, Dict
 import csv
 import os
 import io
+import uvicorn
 
 
 # Initialize FastAPI app
@@ -31,7 +32,7 @@ app = FastAPI(
 # Setup CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Adjust for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
