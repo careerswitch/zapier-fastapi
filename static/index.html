@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Zap Error Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' },
+                        danger: { 100: '#fee2e2', 500: '#ef4444', 700: '#b91c1c' },
+                        success: { 100: '#dcfce7', 500: '#22c55e', 700: '#15803d' },
+                        warning: { 100: '#fef3c7', 500: '#f59e0b', 700: '#b45309' },
+                    },
+                    fontFamily: {
+                        mono: ['Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+      .error-log-grid { display: grid; grid-template-columns: minmax(150px,1.5fr) minmax(200px,2fr) minmax(200px,2fr) 180px 140px 120px; }
+      @media (max-width:1024px) { .error-log-grid { grid-template-columns:180px 1fr 1fr 1fr; } }
+      .fade-in { animation: fadeIn .3s ease-in; }
+      @keyframes fadeIn { from {opacity:0} to {opacity:1} }
+      .error-message { @apply font-mono text-sm overflow-hidden text-ellipsis max-w-[300px] whitespace-nowrap; }
+      .has-tooltip { position: relative; }
+      .tooltip { @apply invisible absolute z-50 p-2 text-xs bg-gray-800 text-white rounded shadow-lg; max-width:300px; word-break:break-word; white-space:normal; }
+      .has-tooltip:hover .tooltip { @apply visible; }
+      .skeleton { @apply bg-gray-200 dark:bg-gray-700 animate-pulse rounded; }
+    }
+  </style>
+</head>
+
+<body class="min-h-screen pb-16 bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+    <header class="sticky top-0 z-10 bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
+        <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="logo-container">
+                    <a href="https://www.viabolat.com" title="viabolat Home"
+                        class="hover:opacity-90 transition-opacity flex items-center">
+                        <div class="logo-circle mr-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"
+                                class="w-5 h-5 fill-purple-500">
+                                <path
+                                    d="M505 174.8l-39.6-39.6c-9.4-9.4-24.6-9.4-33.9 0L192 374.7 80.6 263.2c-9.4-9.4-24.6-9.4-33.9 0L7 302.9c-9.4 9.4-9.4 24.6 0 34L175 505c9.4 9.4 24.6 9.4 33.9 0l296-296.2c9.4-9.5 9.4-24.7 .1-34zm-324.3 106c6.2 6.3 16.4 6.3 22.6 0l208-208.2c6.2-6.3 6.2-16.4 0-22.6L366.1 4.7c-6.2-6.3-16.4-6.3-22.6 0L192 156.2l-55.4-55.5c-6.2-6.3-16.4-6.3-22.6 0L68.7 146c-6.2 6.3-6.2 16.4 0 22.6l112 112.2z" />
+                            </svg>
+                        </div>
+                        <span class="text-xl font-bold text-purple-500">viabolat</span>
+                    </a>
+
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="themeToggle"
+                        class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="Toggle dark mode">
+                        <i class="fas fa-sun text-gray-500 dark:text-gray-300 hidden dark:block"></i>
+                        <i class="fas fa-moon text-gray-500 dark:text-gray-300 dark:hidden block"></i>
+                    </button>
+                    <button id="refreshButton"
+                        class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        aria-label="Refresh data">
+                        <i class="fas fa-sync-alt text-gray-600 dark:text-gray-300"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6" id="statsContainer">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="h-4 w-24 skeleton mb-2"></div>
+                        <div class="h-8 w-16 skeleton"></div>
+                    </div>
+                    <div class="w-12 h-12 skeleton rounded-lg"></div>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="h-4 w-24 skeleton mb-2"></div>
+                        <div class="h-8 w-16 skeleton"></div>
+                    </div>
+                    <div class="w-12 h-12 skeleton rounded-lg"></div>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="h-4 w-24 skeleton mb-2"></div>
+                        <div class="h-8 w-16 skeleton"></div>
+                    </div>
+                    <div class="w-12 h-12 skeleton rounded-lg"></div>
+                </div>
+            </div>
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="h-4 w-24 skeleton mb-2"></div>
+                        <div class="h-8 w-16 skeleton"></div>
+                    </div>
+                    <div class="w-12 h-12 skeleton rounded-lg"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="relative flex-grow min-w-[200px]">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"><i
+                            class="fas fa-search text-gray-400"></i></div>
+                    <input id="searchInput" type="text" placeholder="Search logs..."
+                        class="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 dark:placeholder-gray-400 dark:text-white transition-colors">
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <div class="relative min-w-[150px]"><select id="statusFilter"
+                            class="appearance-none bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full pl-3 pr-10 py-2 transition-colors">
+                            <option value="all">All Statuses</option>
+                            <option value="unresolved">Unresolved</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="dismissed">Dismissed</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"><i
+                                class="fas fa-chevron-down text-gray-400 text-xs"></i></div>
+                    </div>
+                    <div class="relative min-w-[150px]"><select id="zapFilter"
+                            class="appearance-none bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full pl-3 pr-10 py-2 transition-colors">
+                            <option value="all">All Zaps</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3"><i
+                                class="fas fa-chevron-down text-gray-400 text-xs"></i></div>
+                    </div>
+                    <button id="exportButton"
+                        class="px-3 py-2 text-sm bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 flex items-center transition-colors"><i
+                            class="fas fa-download mr-1"></i>Export</button>
+                    <button id="clearButton"
+                        class="px-3 py-2 text-sm bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-900/50 rounded-lg text-red-700 dark:text-red-400 flex items-center transition-colors"><i
+                            class="fas fa-trash mr-1"></i>Clear</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 overflow-hidden">
+            <div id="logs-header"
+                class="error-log-grid border-b dark:border-gray-700 px-4 py-3 bg-gray-50 dark:bg-gray-700/50 font-medium text-gray-700 dark:text-gray-300">
+                <div class="flex items-center cursor-pointer select-none" data-sort="zap_name">Zap Name <i
+                        class="fas fa-sort ml-1 text-gray-400"></i></div>
+                <div class="flex items-center cursor-pointer select-none" data-sort="error_message">Error Message <i
+                        class="fas fa-sort ml-1 text-gray-400"></i></div>
+                <div class="flex items-center select-none">Explanation</div>
+                <div class="flex items-center cursor-pointer select-none" data-sort="timestamp">Timestamp <i
+                        class="fas fa-sort ml-1 text-gray-400"></i></div>
+                <div class="flex items-center select-none">
+                    Status
+                </div>
+                <div>Actions</div>
+            </div>
+            <div id="logs-body">
+                <div id="loadingIndicator" class="py-12 text-center">
+                    <div class="w-12 h-12 mx-auto border-t-4 border-blue-500 rounded-full animate-spin"></div>
+                    <p class="mt-3 text-gray-500 dark:text-gray-400">Loading error logs...</p>
+                </div>
+                <div id="noResults" class="hidden py-16 text-center"><i
+                        class="fas fa-inbox text-4xl text-gray-300 mb-4"></i>
+                    <h3 class="text-xl font-bold dark:text-white">No Error Logs Found</h3>
+                    <p class="text-gray-500 dark:text-gray-400 mt-1">Try adjusting your search or filters</p>
+                </div>
+            </div>
+            <div id="pagination"
+                class="hidden px-4 py-3 flex flex-col md:flex-row items-center gap-4 justify-between border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                <div class="text-sm text-gray-600 dark:text-gray-300">Showing <span id="startCount">0</span> to <span
+                        id="endCount">0</span> of <span id="totalCount">0</span> logs</div>
+                <div class="flex items-center gap-2">
+                    <button id="prevPage"
+                        class="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"><i
+                            class="fas fa-chevron-left mr-1"></i>Previous</button>
+                    <div class="flex gap-1" id="pageButtons"></div>
+                    <button id="nextPage"
+                        class="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors">Next
+                        <i class="fas fa-chevron-right ml-1"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="confirmModal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 transition-opacity">
+        <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-xl shadow-xl transform transition-all">
+            <div class="p-6 text-center">
+                <div
+                    class="w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
+                </div>
+                <h3 id="modalTitle" class="mt-4 text-xl font-bold dark:text-white">Confirm Action</h3>
+                <p id="modalMessage" class="mt-2 text-gray-600 dark:text-gray-300">Are you sure?</p>
+                <div class="mt-6 flex gap-3">
+                    <button id="cancelAction"
+                        class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">Cancel</button>
+                    <button id="confirmAction"
+                        class="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const API_BASE_URL = 'http://localhost:8000/api';
+            const POLL_INTERVAL = 5000;
+            const themeToggle = document.getElementById('themeToggle');
+            const refreshBtn = document.getElementById('refreshButton');
+            const exportBtn = document.getElementById('exportButton');
+            const clearBtn = document.getElementById('clearButton');
+            const searchInput = document.getElementById('searchInput');
+            const statusFilter = document.getElementById('statusFilter');
+            const zapFilter = document.getElementById('zapFilter');
+            const statsContainer = document.getElementById('statsContainer');
+            const logsBody = document.getElementById('logs-body');
+            const noResults = document.getElementById('noResults');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const pagination = document.getElementById('pagination');
+            const prevPage = document.getElementById('prevPage');
+            const nextPage = document.getElementById('nextPage');
+            const pageButtons = document.getElementById('pageButtons');
+            const confirmModal = document.getElementById('confirmModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalMessage = document.getElementById('modalMessage');
+            const cancelAction = document.getElementById('cancelAction');
+            const confirmAction = document.getElementById('confirmAction');
+
+            let allData = [];
+            let filteredData = [];
+            let currentPage = 1;
+            const rowsPerPage = 10;
+            let sortCol = 'timestamp';
+            let sortDir = 'desc';
+            let pendingAction = null;
+            let pollTimer = null;
+
+            setupEventListeners();
+            loadAll();
+            startPolling(); // Start polling on load
+            applyTheme();
+
+            function startPolling() {
+                if (pollTimer) {
+                    clearInterval(pollTimer);
+                }
+                pollTimer = setInterval(loadAll, POLL_INTERVAL);
+            }
+
+            function setupEventListeners() {
+                themeToggle.addEventListener('click', toggleTheme);
+                refreshBtn.addEventListener('click', () => { loadAll(true); showToast('Refreshed data'); }); // Pass true for manual refresh
+                exportBtn.addEventListener('click', showExportConfirmation);
+                clearBtn.addEventListener('click', showClearConfirmation);
+                cancelAction.addEventListener('click', hideModal);
+                confirmAction.addEventListener('click', () => {
+                    if (pendingAction) {
+                        pendingAction();
+                    }
+                    hideModal();
+                });
+                prevPage.addEventListener('click', () => changePage(-1));
+                nextPage.addEventListener('click', () => changePage(1));
+                document.querySelectorAll('[data-sort]').forEach(el => el.addEventListener('click', () => sortTable(el.dataset.sort)));
+                searchInput.addEventListener('input', debounce(applyFilters, 300));
+                statusFilter.addEventListener('change', applyFilters);
+                zapFilter.addEventListener('change', applyFilters);
+            }
+
+            async function loadAll(isManualRefresh = false) {
+                // Only show loading indicator if allData is empty (first load)
+                // or if a manual refresh is triggered
+                if (allData.length === 0 || isManualRefresh) {
+                    showLoading();
+                }
+                try {
+                    const res = await fetch(`${API_BASE_URL}/logs`);
+                    if (!res.ok) throw new Error('Failed to fetch logs');
+                    const newData = await res.json();
+                    // Check if data has actually changed before updating to avoid unnecessary re-renders
+                    // This comparison can be expensive for very large datasets, consider a simpler check like length or a hash
+                    if (JSON.stringify(allData) !== JSON.stringify(newData)) {
+                        allData = newData;
+                        updateZapFilter();
+                        applyFilters();
+                        renderStats();
+                    }
+                } catch (err) {
+                    showError(err.message);
+                } finally {
+                    hideLoading();
+                }
+            }
+
+            function updateZapFilter() {
+                // Preserve current selection before updating options
+                const currentZapSelection = zapFilter.value;
+
+                const zaps = Array.from(new Set(allData.map(l => l.zap_name))).sort();
+                zapFilter.innerHTML = `<option value="all">All Zaps</option>` + zaps.map(z => `<option value="${z}">${z}</option>`).join('');
+
+                // Restore previous selection if it still exists
+                if ([...zapFilter.options].some(option => option.value === currentZapSelection)) {
+                    zapFilter.value = currentZapSelection;
+                } else {
+                    zapFilter.value = 'all'; // Default to 'all' if the selected Zap is no longer available
+                }
+            }
+
+            function renderStats() {
+                const total = allData.length;
+                const unresolved = allData.filter(l => l.status === 'unresolved').length;
+                const resolved = allData.filter(l => l.status === 'resolved').length;
+                const dismissed = allData.filter(l => l.status === 'dismissed').length;
+
+                statsContainer.innerHTML = `
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+            <div class="flex justify-between">
+              <div>
+                <p class="text-sm text-gray-500">Total Logs</p>
+                <h3 class="mt-1 text-2xl font-bold dark:text-white">${total}</h3>
+                <p class="text-xs text-gray-400 mt-1">Updated: ${new Date().toLocaleTimeString()}</p>
+              </div>
+              <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-list text-blue-500"></i></div>
+            </div>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+            <div class="flex justify-between">
+              <div>
+                <p class="text-sm text-gray-500">Unresolved</p>
+                <h3 class="mt-1 text-2xl text-orange-500">${unresolved}</h3>
+                <div class="mt-1 h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-orange-500" style="width:${total ? (unresolved / total * 100) + '%' : '0'}"></div>
+                </div>
+              </div>
+              <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-exclamation-circle text-orange-500"></i></div>
+            </div>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+            <div class="flex justify-between">
+              <div>
+                <p class="text-sm text-gray-500">Resolved</p>
+                <h3 class="mt-1 text-2xl text-green-500">${resolved}</h3>
+                <div class="mt-1 h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-green-500" style="width:${total ? (resolved / total * 100) + '%' : '0'}"></div>
+                </div>
+              </div>
+              <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-check-circle text-green-500"></i></div>
+            </div>
+          </div>
+          <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border dark:border-gray-700 p-4">
+            <div class="flex justify-between">
+              <div>
+                <p class="text-sm text-gray-500">Dismissed</p>
+                <h3 class="mt-1 text-2xl text-gray-500">${dismissed}</h3>
+                <div class="mt-1 h-1.5 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div class="h-full bg-gray-500" style="width:${total ? (dismissed / total * 100) + '%' : '0'}"></div>
+                </div>
+              </div>
+              <div class="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center"><i class="fas fa-times-circle text-gray-500"></i></div>
+            </div>
+          </div>`;
+            }
+
+            function applyFilters() {
+                const s = searchInput.value.toLowerCase();
+                const st = statusFilter.value;
+                const z = zapFilter.value;
+
+                filteredData = allData.filter(l =>
+                    (l.zap_name.toLowerCase().includes(s) ||
+                        l.error_message.toLowerCase().includes(s) ||
+                        (l.explanation || '').toLowerCase().includes(s))
+                    && (st === 'all' || l.status === st)
+                    && (z === 'all' || l.zap_name === z)
+                );
+                sortCurrent();
+                renderTable();
+            }
+
+            function sortCurrent() {
+                if (!sortCol) return;
+                filteredData.sort((a, b) => {
+                    const va = sortCol === 'timestamp' ? new Date(a[sortCol]).getTime() : (a[sortCol] || '');
+                    const vb = sortCol === 'timestamp' ? new Date(b[sortCol]).getTime() : (b[sortCol] || '');
+                    if (typeof va === 'string') {
+                        return sortDir === 'asc'
+                            ? va.localeCompare(vb, undefined, { sensitivity: 'base' })
+                            : vb.localeCompare(va, undefined, { sensitivity: 'base' });
+                    }
+                    return sortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+                });
+            }
+
+            function sortTable(col) {
+                if (sortCol === col) {
+                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortCol = col;
+                    sortDir = 'asc';
+                }
+
+                document.querySelectorAll('[data-sort]').forEach(el => {
+                    const ic = el.querySelector('i');
+                    if (el.dataset.sort === col) {
+                        ic.className = sortDir === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+                    } else {
+                        ic.className = 'fas fa-sort ml-1 text-gray-400';
+                    }
+                });
+
+                sortCurrent();
+                renderTable();
+                console.log("filteredData after sort:", filteredData.map(x => x.zap_name));
+            }
+
+            function renderTable() {
+
+                const totalPages = Math.ceil(filteredData.length / rowsPerPage);
+                if (currentPage > totalPages && totalPages > 0) currentPage = totalPages;
+                if (currentPage < 1 && filteredData.length > 0) currentPage = 1;
+
+                const start = (currentPage - 1) * rowsPerPage;
+                const end = Math.min(start + rowsPerPage, filteredData.length);
+                const logsToRender = filteredData.slice(start, end);
+
+                // Update counts
+                document.getElementById('startCount').textContent = filteredData.length === 0 ? '0' : start + 1;
+                document.getElementById('endCount').textContent = end;
+                document.getElementById('totalCount').textContent = filteredData.length;
+
+                if (!filteredData.length) {
+                    noResults.classList.remove('hidden');
+                    pagination.classList.add('hidden');
+                    logsBody.innerHTML = '';
+                    return;
+                }
+
+                noResults.classList.add('hidden');
+                pagination.classList.remove('hidden');
+
+                logsBody.innerHTML = '';
+                logsToRender.forEach(l => {
+                    const row = document.createElement('div');
+                    row.className = 'error-log-grid px-4 py-3 border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/30 fade-in error-log-row';
+                    row.dataset.logId = l.id;
+                    updateRowContent(row, l);
+                    logsBody.appendChild(row);
+                });
+
+                attachActionListeners();
+                updatePagination(totalPages);
+            }
+
+            function updateRowContent(row, l) {
+                let stC = 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+                    stI = 'fas fa-exclamation-circle',
+                    stColor = 'text-orange-500';
+
+                if (l.status === 'resolved') {
+                    stC = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+                    stI = 'fas fa-check-circle';
+                    stColor = 'text-green-500';
+                } else if (l.status === 'dismissed') {
+                    stC = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+                    stI = 'fas fa-times-circle';
+                    stColor = 'text-gray-500';
+                }
+
+                const d = new Date(l.timestamp);
+                const fD = d.toLocaleDateString();
+                const fT = d.toLocaleTimeString();
+
+                // Check if the current innerHTML needs updating to prevent unnecessary re-rendering
+                const newInnerHTML = `
+          <div class="font-medium dark:text-white flex items-center"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"class="w-5 h-5 fill-purple-500 mr-2">
+            <path d="M505 174.8l-39.6-39.6c-9.4-9.4-24.6-9.4-33.9 0L192 374.7 80.6 263.2c-9.4-9.4-24.6-9.4-33.9 0L7 302.9c-9.4 9.4-9.4 24.6 0 34L175 505c9.4 9.4 24.6 9.4 33.9 0l296-296.2c9.4-9.5 9.4-24.7 .1-34zm-324.3 106c6.2 6.3 16.4 6.3 22.6 0l208-208.2c6.2-6.3 6.2-16.4 0-22.6L366.1 4.7c-6.2-6.3-16.4-6.3-22.6 0L192 156.2l-55.4-55.5c-6.2-6.3-16.4-6.3-22.6 0L68.7 146c-6.2 6.3-6.2 16.4 0 22.6l112 112.2z"/>
+            </svg><span class="truncate">${l.zap_name}</span></div>
+          <div class="has-tooltip"><div class="error-message text-gray-600 dark:text-gray-300 truncate">${l.error_message}</div><div class="tooltip">${l.error_message}</div></div>
+          <div class="has-tooltip"><div class="text-gray-500 dark:text-gray-400 truncate">${l.explanation || 'No explanation available'}</div>${l.explanation ? `<div class="tooltip">${l.explanation}</div>` : ''}</div>
+          <div class="text-sm text-gray-500 dark:text-gray-400"><div title="${l.timestamp}">${fD}</div><div class="text-xs">${fT}</div></div>
+          <div><span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${stC}"><i class="${stI} mr-1"></i>${l.status.charAt(0).toUpperCase() + l.status.slice(1)}</span></div>
+          <div class="flex items-center gap-2">
+            <button class="resolve-btn p-1.5 rounded hover:bg-green-100 dark:hover:bg-green-900/30 ${stColor} hover:text-green-700 dark:hover:text-green-400 transition-colors" data-id="${l.id}" title="Mark resolved"><i class="fas fa-check-circle"></i></button>
+            <button class="dismiss-btn p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 ${stColor} hover:text-gray-700 dark:hover:text-gray-400 transition-colors" data-id="${l.id}" title="Dismiss error"><i class="fas fa-times-circle"></i></button>
+            <button class="view-btn p-1.5 rounded hover:bg-blue-100 dark:hover:bg-blue-900/30 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 transition-colors" data-id="${l.id}" title="View details"><i class="fas fa-eye"></i></button>
+          </div>
+        `;
+                // Only update if content has changed to prevent re-attaching listeners unnecessarily
+                if (row.innerHTML.trim() !== newInnerHTML.trim()) {
+                    row.innerHTML = newInnerHTML;
+                }
+            }
+
+            function attachActionListeners() {
+                logsBody.querySelectorAll('.resolve-btn').forEach(b => {
+                    b.onclick = (e) => { e.stopPropagation(); updateLogStatus(b.dataset.id, 'resolved'); };
+                });
+                logsBody.querySelectorAll('.dismiss-btn').forEach(b => {
+                    b.onclick = (e) => { e.stopPropagation(); updateLogStatus(b.dataset.id, 'dismissed'); };
+                });
+                logsBody.querySelectorAll('.view-btn').forEach(b => {
+                    b.onclick = (e) => { e.stopPropagation(); viewLogDetails(b.dataset.id); };
+                });
+            }
+
+            function updatePagination(totalPages) {
+                pageButtons.innerHTML = '';
+                if (totalPages <= 1) {
+                    pagination.classList.add('hidden');
+                    return;
+                }
+                pagination.classList.remove('hidden');
+                prevPage.disabled = currentPage === 1;
+                nextPage.disabled = currentPage === totalPages;
+
+                addPageButton(1);
+                if (currentPage > 3) addEllipsis();
+                for (let p = Math.max(2, currentPage - 1); p <= Math.min(totalPages - 1, currentPage + 1); p++) {
+                    addPageButton(p);
+                }
+                if (currentPage < totalPages - 2) addEllipsis();
+                if (totalPages > 1) addPageButton(totalPages);
+            }
+
+            function addPageButton(p) {
+                if (pageButtons.querySelector(`[data-page="${p}"]`)) return;
+                const btn = document.createElement('button');
+                btn.textContent = p;
+                btn.dataset.page = p;
+                btn.className = `page-btn px-3 py-1.5 text-sm rounded-lg transition-colors ${(currentPage === p ? 'bg-blue-500 text-white' : 'bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600')}`;
+                btn.addEventListener('click', () => {
+                    currentPage = p;
+                    renderTable();
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                });
+                pageButtons.appendChild(btn);
+            }
+
+            function addEllipsis() {
+                const s = document.createElement('span');
+                s.className = 'px-3 py-1.5';
+                s.textContent = '…';
+                pageButtons.appendChild(s);
+            }
+
+            function changePage(d) {
+                currentPage += d;
+                renderTable();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            async function updateLogStatus(id, status) {
+                try {
+                    const r = await fetch(`${API_BASE_URL}/logs/${id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status })
+                    });
+                    if (!r.ok) throw new Error('Update failed');
+                    const ul = await r.json();
+                    // Update the specific log entry in allData
+                    allData = allData.map(l => l.id === id ? ul : l);
+                    renderStats(); // Update stats immediately
+
+                    // Update the specific log entry in filteredData and re-render its row
+                    const logIndexInFiltered = filteredData.findIndex(l => l.id === id);
+                    if (logIndexInFiltered !== -1) {
+                        filteredData[logIndexInFiltered] = ul; // Update with the returned data
+                        const rowElement = logsBody.querySelector(`[data-log-id="${id}"]`);
+                        if (rowElement) {
+                            updateRowContent(rowElement, ul); // Re-render the specific row
+                            attachActionListeners(); // Re-attach listeners for the updated row
+                        }
+                    }
+                    showToast(`Status set to ${status}`);
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            }
+
+            function viewLogDetails(id) {
+                const l = allData.find(x => String(x.id) === String(id));
+                if (!l) return;
+
+                modalTitle.textContent = 'Error Details';
+                modalMessage.innerHTML = `
+          <div class="text-left space-y-3">
+            <div><h4 class="font-bold dark:text-white">Zap Name</h4><p class="text-gray-600 dark:text-gray-300">${l.zap_name}</p></div>
+            <div><h4 class="font-bold dark:text-white">Error Message</h4><p class="font-mono text-sm bg-gray-100 dark:bg-gray-700 p-2 rounded">${l.error_message}</p></div>
+            <div><h4 class="font-bold dark:text-white">Explanation</h4><p class="text-gray-600 dark:text-gray-300">${l.explanation || 'No explanation available'}</p></div>
+            <div><h4 class="font-bold dark:text-white">Timestamp</h4><p class="text-gray-600 dark:text-gray-300">${new Date(l.timestamp).toLocaleString()}</p></div>
+            <div><h4 class="font-bold dark:text-white">Status</h4><p class="text-gray-600 dark:text-gray-300 capitalize">${l.status}</p></div>
+          </div>`;
+                const iconDiv = confirmModal.querySelector('div.w-12');
+                iconDiv.className = 'w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center';
+                iconDiv.innerHTML = '<i class="fas fa-info-circle text-blue-500 text-xl"></i>';
+                confirmAction.classList.add('hidden');
+                cancelAction.textContent = 'Close';
+                confirmModal.classList.remove('hidden');
+            }
+
+            function showExportConfirmation() {
+                if (!filteredData.length) {
+                    showToast('No logs to export', 'warning');
+                    return;
+                }
+                pendingAction = exportLogs;
+                modalTitle.textContent = 'Export Logs?';
+                modalMessage.textContent = `Export ${statusFilter.value.toUpperCase()} filtered logs?`;
+                const iconDiv = confirmModal.querySelector('div.w-12');
+                iconDiv.className = 'w-12 h-12 mx-auto bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center';
+                iconDiv.innerHTML = '<i class="fas fa-download text-blue-500 text-xl"></i>';
+                confirmAction.classList.remove('hidden');
+                confirmAction.className = 'flex-1 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors';
+                cancelAction.textContent = 'Cancel';
+                confirmModal.classList.remove('hidden');
+            }
+
+            async function exportLogs() {
+                try {
+                    const params = new URLSearchParams();
+                    if (statusFilter.value !== 'all') params.append('status', statusFilter.value);
+                    if (searchInput.value) params.append('search', searchInput.value);
+                    if (zapFilter.value !== 'all') params.append('zap', zapFilter.value);
+
+                    const res = await fetch(`${API_BASE_URL}/logs/export?${params.toString()}`);
+                    if (!res.ok) throw new Error('Export failed');
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `zapier_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast('Export ready');
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            }
+
+            function showClearConfirmation() {
+                pendingAction = clearAllLogs;
+                modalTitle.textContent = 'Clear All Logs?';
+                modalMessage.textContent = 'This will permanently delete all logs.';
+                const iconDiv = confirmModal.querySelector('div.w-12');
+                iconDiv.className = 'w-12 h-12 mx-auto bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center';
+                iconDiv.innerHTML = '<i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>';
+                confirmAction.classList.remove('hidden');
+                confirmAction.className = 'flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors';
+                cancelAction.textContent = 'Cancel';
+                confirmModal.classList.remove('hidden');
+            }
+
+            async function clearAllLogs() {
+                try {
+                    const res = await fetch(`${API_BASE_URL}/logs`, { method: 'DELETE' });
+                    if (!res.ok) throw new Error('Clear failed');
+                    allData = [];
+                    applyFilters();
+                    renderStats();
+                    showToast('All logs cleared');
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            }
+
+            function hideModal() {
+                confirmModal.classList.add('hidden');
+                confirmAction.classList.remove('hidden');
+                confirmAction.className = 'flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors';
+                cancelAction.textContent = 'Cancel';
+            }
+
+            function showLoading() {
+                loadingIndicator.classList.remove('hidden');
+                noResults.classList.add('hidden');
+            }
+
+            function hideLoading() {
+                loadingIndicator.classList.add('hidden');
+            }
+
+            function showError(msg) {
+                loadingIndicator.classList.add('hidden');
+                logsBody.innerHTML = `
+          <div class="py-16 text-center">
+            <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
+            <h3 class="text-xl font-bold dark:text-white">Error Loading Data</h3>
+            <p class="text-gray-500 dark:text-gray-400 mt-2">${msg}</p>
+            <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors">Retry</button>
+          </div>`;
+            }
+
+            function showToast(msg, type = 'success') {
+                const colors = {
+                    success: ['bg-green-500', 'fas fa-check-circle', 'text-green-100'],
+                    error: ['bg-red-500', 'fas fa-exclamation-circle', 'text-red-100'],
+                    warning: ['bg-orange-500', 'fas fa-exclamation-triangle', 'text-orange-100']
+                };
+                const [bg, icn, icnClr] = colors[type] || colors.success;
+                const toast = document.createElement('div');
+                toast.className = `fixed bottom-4 right-4 ${bg} text-white px-4 py-3 rounded-lg shadow-lg flex items-center transform transition-all duration-300 translate-y-10 opacity-0`;
+                toast.innerHTML = `<i class="${icn} ${icnClr} mr-2"></i><span>${msg}</span>`;
+                document.body.appendChild(toast);
+                setTimeout(() => { toast.classList.replace('translate-y-10', 'translate-y-0'); toast.classList.replace('opacity-0', 'opacity-100'); }, 10);
+                setTimeout(() => { toast.classList.replace('translate-y-0', 'translate-y-10'); toast.classList.replace('opacity-100', 'opacity-0'); setTimeout(() => toast.remove(), 300); }, 3000);
+            }
+
+            function toggleTheme() {
+                document.documentElement.classList.toggle('dark');
+                localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+            }
+
+            function applyTheme() {
+                if (localStorage.getItem('darkMode') === 'true' || (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                }
+            }
+
+            function debounce(fn, ms) {
+                let t;
+                return function () {
+                    clearTimeout(t);
+                    t = setTimeout(() => fn.apply(this, arguments), ms);
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
